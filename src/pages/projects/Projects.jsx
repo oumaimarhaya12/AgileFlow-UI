@@ -18,20 +18,45 @@ const Projects = () => {
     const fetchProjects = async () => {
       try {
         setLoading(true)
-        let response
+        let projectsData = []
 
-        // If user is admin, fetch all projects, otherwise fetch user's projects
-        if (user.role === "ADMIN") {
-          response = await projectService.getAllProjects()
-        } else {
-          response = await projectService.getProjectsByUser(user.id)
+        try {
+          // If user is admin, fetch all projects, otherwise fetch user's projects
+          let response
+          if (user.role === "ADMIN") {
+            response = await projectService.getAllProjects()
+          } else {
+            response = await projectService.getProjectsByUser(user.id)
+          }
+
+          projectsData = response.data || []
+        } catch (error) {
+          console.error("Error fetching projects:", error)
+          // Use mock data if API fails
+          projectsData = projectService.getMockProjects()
+          toast.warning("Using mock project data due to API error")
         }
 
-        setProjects(response.data || [])
-        setFilteredProjects(response.data || [])
+        // Map the data to ensure consistent property names
+        const mappedProjects = projectsData.map((project) => ({
+          id: project.projectId || project.id,
+          name: project.projectName || project.name,
+          description: project.description || "",
+          status: project.status || "ACTIVE",
+          startDate: project.startDate,
+          endDate: project.endDate,
+          // Add any other properties needed
+        }))
+
+        setProjects(mappedProjects)
+        setFilteredProjects(mappedProjects)
       } catch (error) {
-        console.error("Error fetching projects:", error)
+        console.error("Error in projects component:", error)
         toast.error("Failed to load projects")
+
+        // Set empty arrays as fallback
+        setProjects([])
+        setFilteredProjects([])
       } finally {
         setLoading(false)
       }
@@ -162,4 +187,3 @@ const Projects = () => {
 }
 
 export default Projects
-

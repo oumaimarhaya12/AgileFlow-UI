@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react"
 import { toast } from "react-toastify"
-import { mockUsers } from "../services/mockData"
+import { authService } from "../services/authService"
 
 const AuthContext = createContext()
 
@@ -35,37 +35,25 @@ export const AuthProvider = ({ children }) => {
     checkAuth()
   }, [])
 
-  // Direct mock login implementation
-  const login = async (email, password) => {
+  // Login function that connects to the backend
+  const login = async (username, password) => {
     try {
       setLoading(true)
-      console.log("Attempting login with:", { email, password })
+      console.log("Attempting login with:", { username, password })
 
-      // Find user by email
-      const user = mockUsers.find((u) => u.email === email)
-      console.log("Found user:", user)
+      const response = await authService.login({ username, password })
+      console.log("Login response:", response)
 
-      if (!user || password !== "password") {
-        console.error("Login failed: Invalid credentials")
-        throw new Error("Invalid email or password")
-      }
-
-      if (!user.active) {
-        console.error("Login failed: Account inactive")
-        throw new Error("Account is inactive")
-      }
-
-      // Create user data object
+      // Extract user data from response
       const userData = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
+        id: response.data.id,
+        username: response.data.username,
+        email: response.data.email,
+        role: response.data.role,
       }
 
-      // Save token and user data
-      const token = `mock-jwt-token-${user.id}`
-      localStorage.setItem("token", token)
+      // Store token and user data
+      localStorage.setItem("token", response.data.token)
       localStorage.setItem("user", JSON.stringify(userData))
 
       setUser(userData)
@@ -75,7 +63,15 @@ export const AuthProvider = ({ children }) => {
       return true
     } catch (error) {
       console.error("Login failed:", error)
-      toast.error(error.message || "Login failed. Please try again.")
+
+      // More detailed error logging
+      if (error.response) {
+        console.error("Error status:", error.response.status)
+        console.error("Error data:", error.response.data)
+      }
+
+      const errorMessage = error.response?.data?.message || "Login failed. Please try again."
+      toast.error(errorMessage)
       return false
     } finally {
       setLoading(false)
@@ -87,21 +83,22 @@ export const AuthProvider = ({ children }) => {
       setLoading(true)
       console.log("Attempting signup with:", userData)
 
-      // Check if email already exists
-      if (mockUsers.some((u) => u.email === userData.email)) {
-        throw new Error("Email already in use")
-      }
-
-      // Check if username already exists
-      if (mockUsers.some((u) => u.username === userData.username)) {
-        throw new Error("Username already in use")
-      }
+      const response = await authService.signup(userData)
+      console.log("Signup response:", response)
 
       toast.success("Registration successful! Please login.")
       return true
     } catch (error) {
       console.error("Signup failed:", error)
-      toast.error(error.message || "Registration failed. Please try again.")
+
+      // More detailed error logging
+      if (error.response) {
+        console.error("Error status:", error.response.status)
+        console.error("Error data:", error.response.data)
+      }
+
+      const errorMessage = error.response?.data?.message || "Registration failed. Please try again."
+      toast.error(errorMessage)
       return false
     } finally {
       setLoading(false)
@@ -127,4 +124,3 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-

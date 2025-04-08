@@ -1,21 +1,21 @@
-import axios from "axios"
+import api from "./api"
 
 export const authService = {
   /**
-   * Login with email and password
+   * Login with username and password
    * @param {Object} credentials - Login credentials
-   * @param {string} credentials.email - User email
+   * @param {string} credentials.username - Username
    * @param {string} credentials.password - User password
    * @returns {Promise} - Promise with login response
    */
   login: (credentials) => {
     console.log("Sending login request to /api/auth/login with:", credentials)
-    // Make sure we're sending the exact structure expected by the backend
+    // Make sure we're sending the exact structure expected by the backend LoginRequest class
     const loginRequest = {
-      email: credentials.email,
+      username: credentials.username,
       password: credentials.password,
     }
-    return axios.post("/api/auth/login", loginRequest)
+    return api.post("/api/auth/login", loginRequest)
   },
 
   /**
@@ -25,14 +25,19 @@ export const authService = {
    */
   signup: (userData) => {
     console.log("Sending signup request to /api/auth/signup with:", userData)
-    // Make sure we're sending the exact structure expected by the backend
-    const signupRequest = {
+    return api.post("/api/auth/signup", {
       username: userData.username,
       email: userData.email,
       password: userData.password,
       role: userData.role,
-    }
-    return axios.post("/api/auth/signup", signupRequest)
+    })
+  },
+
+  /**
+   * Test authentication endpoint
+   * @returns {Promise} - Promise with test response
+   */
+  testAuth: () => {
+    return api.get("/api/auth/test")
   },
 }
-

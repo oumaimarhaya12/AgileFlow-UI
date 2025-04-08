@@ -6,14 +6,20 @@ export const projectService = {
    * @param {Object} projectData - Project data
    * @returns {Promise} - Promise with created project
    */
-  createProject: (projectData) => api.post("/api/projects", projectData),
+  createProject: (projectData) => {
+    console.log("Creating project with data:", projectData)
+    return api.post("/api/projects", projectData)
+  },
 
   /**
    * Create a project with owner
    * @param {Object} projectData - Project data with userId
    * @returns {Promise} - Promise with created project
    */
-  createProjectWithOwner: (projectData) => api.post("/api/projects/with-owner", projectData),
+  createProjectWithOwner: (projectData) => {
+    console.log("Creating project with owner, data:", projectData)
+    return api.post("/api/projects/with-owner", projectData)
+  },
 
   /**
    * Update a project
@@ -92,5 +98,59 @@ export const projectService = {
    * @returns {Promise} - Promise with statistics
    */
   getProjectStatistics: () => api.get("/api/projects/statistics"),
+
+  /**
+   * Get mock project data for development when API fails
+   * @returns {Array} - Array of mock projects
+   */
+  getMockProjects: () => {
+    return [
+      {
+        id: 1,
+        projectId: 1,
+        projectName: "AgileFlow Development",
+        description: "Development of the AgileFlow application",
+        status: "ACTIVE",
+        startDate: "2023-01-01",
+        endDate: "2023-12-31",
+        ownerName: "Product Owner",
+      },
+      {
+        id: 2,
+        projectId: 2,
+        projectName: "Website Redesign",
+        description: "Redesign of the company website",
+        status: "ACTIVE",
+        startDate: "2023-02-15",
+        endDate: "2023-06-30",
+        ownerName: "Product Owner",
+      },
+      {
+        id: 3,
+        projectId: 3,
+        projectName: "Mobile App Development",
+        description: "Development of a mobile app for customers",
+        status: "ACTIVE",
+        startDate: "2023-03-01",
+        endDate: "2023-09-30",
+        ownerName: "Product Owner",
+      },
+    ]
+  },
+
+  /**
+   * Get mock project statistics for development when API fails
+   * @returns {Object} - Mock statistics
+   */
+  getMockStatistics: () => {
+    return {
+      totalProjects: 3,
+      projectsWithBacklog: 2,
+      totalTasks: 45,
+      completedTasks: 18,
+      totalUsers: 12,
+      totalSprints: 5,
+    }
+  },
 }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import axios from "axios"
+import { authService } from "../../services/authService"
 
 const TestAuth = () => {
   const [email, setEmail] = useState("")
@@ -15,7 +16,7 @@ const TestAuth = () => {
     const checkServerStatus = async () => {
       try {
         // Try to reach the server with a simple request
-        await axios.get("http://localhost:8084/api/auth", {
+        await axios.get("http://localhost:8084/api/auth/test", {
           timeout: 3000,
           validateStatus: (status) => {
             return status < 500 // Accept any status code less than 500
@@ -55,28 +56,18 @@ const TestAuth = () => {
       console.log("Sending direct login request to backend")
 
       // Log the full request details
-      console.log("Request URL:", "http://localhost:8084/api/auth/login")
       console.log("Request payload:", { email, password })
 
-      const result = await axios.post(
-        "http://localhost:8084/api/auth/login",
-        {
-          email,
-          password,
-        },
-        {
-          // Add these options to help with debugging
-          timeout: 10000, // 10 second timeout
-          headers: {
-            "Content-Type": "application/json",
-          },
-          // Disable CORS protection for testing
-          withCredentials: false,
-        },
-      )
+      const result = await authService.login({ email, password })
 
       console.log("Login response:", result)
       setResponse(result.data)
+
+      // Store token in localStorage
+      if (result.data.token) {
+        localStorage.setItem("token", result.data.token)
+        console.log("Token stored in localStorage:", result.data.token)
+      }
     } catch (err) {
       console.error("Login error:", err)
 
@@ -167,6 +158,12 @@ const TestAuth = () => {
         <div className="mt-4 p-4 bg-green-100 dark:bg-green-900 rounded-md">
           <h3 className="font-medium text-green-800 dark:text-green-200">Success Response:</h3>
           <pre className="mt-2 text-sm overflow-auto max-h-60">{JSON.stringify(response, null, 2)}</pre>
+
+          {response.token && (
+            <div className="mt-2 p-2 bg-blue-100 dark:bg-blue-900 rounded">
+              <p className="font-medium text-blue-800 dark:text-blue-200">Token stored in localStorage</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -181,4 +178,3 @@ const TestAuth = () => {
 }
 
 export default TestAuth
-

@@ -22,6 +22,8 @@ import AdminDashboard from "./pages/dashboards/AdminDashboard"
 // Project Pages
 import Projects from "./pages/projects/Projects"
 import ProjectDetails from "./pages/projects/ProjectDetails"
+import NewProject from "./pages/projects/NewProject"
+import EditProject from "./pages/projects/EditProject"
 
 // Backlog Pages
 import ProductBacklog from "./pages/backlogs/ProductBacklog"
@@ -29,7 +31,7 @@ import SprintBacklog from "./pages/backlogs/SprintBacklog"
 
 // Sprint Pages
 import Sprints from "./pages/sprint/Sprints"
-import SprintDetails from "./pages/sprint/SprintDetails" // Fixed import path
+import SprintDetails from "./pages/sprint/SprintDetails"
 
 // Task Pages
 import Tasks from "./pages/tasks/Tasks"
@@ -45,6 +47,9 @@ import { ThemeProvider } from "./contexts/ThemeContext"
 
 // Add this import
 import ThemeToggle from "./components/common/ThemeToggle"
+
+// Add the CorsTest route to the App.jsx file
+import CorsTest from "./pages/CorsTest"
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -208,10 +213,26 @@ function App() {
                 }
               />
               <Route
+                path="/projects/new"
+                element={
+                  <ProtectedRoute allowedRoles={["PRODUCT_OWNER", "ADMIN"]}>
+                    <NewProject />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/projects/:id"
                 element={
                   <ProtectedRoute allowedRoles={["PRODUCT_OWNER", "SCRUM_MASTER", "DEVELOPER", "TESTER", "ADMIN"]}>
                     <ProjectDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/projects/:id/edit"
+                element={
+                  <ProtectedRoute allowedRoles={["PRODUCT_OWNER", "ADMIN"]}>
+                    <EditProject />
                   </ProtectedRoute>
                 }
               />
@@ -284,6 +305,15 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={["ADMIN"]}>
                     <UserDetails />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Add this route inside the Routes component */}
+              <Route
+                path="/cors-test"
+                element={
+                  <ProtectedRoute>
+                    <CorsTest />
                   </ProtectedRoute>
                 }
               />

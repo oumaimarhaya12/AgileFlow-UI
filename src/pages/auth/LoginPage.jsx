@@ -1,12 +1,10 @@
 "use client"
-import { useLocation } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import ThemeToggle from "../../components/common/ThemeToggle"
 import Login from "./Login"
 
 const LoginPage = () => {
-  const location = useLocation()
-
-  console.log("LoginPage rendering at path:", location.pathname)
+  const navigate = useNavigate()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -21,8 +19,6 @@ const LoginPage = () => {
             <p className="text-gray-600 dark:text-gray-400">Agile Project Management</p>
           </div>
 
-          <div className="text-center mb-4 text-blue-500">This is the dedicated LOGIN page</div>
-
           <Login />
         </div>
       </div>
@@ -31,4 +27,3 @@ const LoginPage = () => {
 }
 
 export default LoginPage
-

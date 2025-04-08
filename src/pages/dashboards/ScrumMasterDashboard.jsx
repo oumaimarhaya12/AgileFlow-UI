@@ -29,11 +29,12 @@ const ScrumMasterDashboard = () => {
     velocity: 0,
   })
   const [currentSprint, setCurrentSprint] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        setIsLoading(true)
         // Fetch active sprints
         const sprintsResponse = await axios.get("/api/sprints/active")
         const activeSprints = sprintsResponse.data || []
@@ -70,7 +71,7 @@ const ScrumMasterDashboard = () => {
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
@@ -277,4 +278,3 @@ const ScrumMasterDashboard = () => {
 }
 
 export default ScrumMasterDashboard
-

@@ -1,8 +1,10 @@
 "use client"
 
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useAuth } from "../../contexts/AuthContext"
 import { User, Mail, Lock, AlertCircle } from "react-feather"
+import { toast } from "react-toastify"
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -14,6 +16,7 @@ const Signup = () => {
   })
   const [errors, setErrors] = useState({})
   const { signup, loading } = useAuth()
+  const navigate = useNavigate()
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -23,7 +26,7 @@ const Signup = () => {
     })
   }
 
-  const validate = async () => {
+  const validate = () => {
     const newErrors = {}
 
     if (!formData.username) {
@@ -52,26 +55,30 @@ const Signup = () => {
     return Object.keys(newErrors).length === 0
   }
 
-  // Update the handleSubmit function to match the SignupRequest structure
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (await validate()) {
-      console.log("Submitting signup form with:", formData)
+    if (validate()) {
+      try {
+        // Create the signup request object to match your backend's SignupRequest
+        const signupRequest = {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        }
 
-      // Create the signup request object to match your backend's SignupRequest
-      const signupRequest = {
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
-      }
+        const success = await signup(signupRequest)
 
-      console.log("Sending signup request:", signupRequest)
-      const success = await signup(signupRequest)
-
-      if (success) {
-        window.location.href = "/login"
+        if (success) {
+          toast.success("Registration successful! Redirecting to login...")
+          setTimeout(() => {
+            navigate("/login")
+          }, 2000)
+        }
+      } catch (error) {
+        console.error("Signup error:", error)
+        toast.error("Registration failed. Please try again.")
       }
     }
   }
@@ -79,15 +86,12 @@ const Signup = () => {
   // Function to navigate to login page
   const goToLogin = (e) => {
     e.preventDefault()
-    window.location.href = "/login"
+    navigate("/login")
   }
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 w-full">
       <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white mb-6">Create an Account</h2>
-
-      {/* Add explicit component identifier */}
-      <div className="text-center mb-4 text-red-500">This is the SIGNUP component</div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -244,4 +248,3 @@ const Signup = () => {
 }
 
 export default Signup
-
