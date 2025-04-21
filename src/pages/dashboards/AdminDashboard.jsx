@@ -3,10 +3,24 @@
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import axios from "axios"
-import { Users, Briefcase, CheckSquare, UserPlus, UserCheck, UserX } from "react-feather"
+import {
+  Users,
+  Briefcase,
+  CheckSquare,
+  UserPlus,
+  UserCheck,
+  UserX,
+  Shield,
+  Database,
+  Calendar,
+  List,
+  Plus,
+} from "react-feather"
 import { useAuth } from "../../contexts/AuthContext"
 import { Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { toast } from "react-toastify"
 
+// Update the AdminDashboard component to include more admin-specific features
 const AdminDashboard = () => {
   const { user } = useAuth()
   const [stats, setStats] = useState({
@@ -15,25 +29,43 @@ const AdminDashboard = () => {
     inactiveUsers: 0,
     totalProjects: 0,
     totalTasks: 0,
+    totalSprints: 0,
+    totalBacklogs: 0,
+    totalUserStories: 0,
   })
   const [usersByRole, setUsersByRole] = useState([])
   const [recentUsers, setRecentUsers] = useState([])
+  const [recentProjects, setRecentProjects] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch users
+        setLoading(true)
+
+        // Fetch users - Admin has full access to user endpoints
         const usersResponse = await axios.get("/api/users")
         const users = usersResponse.data || []
 
-        // Fetch projects
+        // Fetch projects - Admin has full access to project endpoints
         const projectsResponse = await axios.get("/api/projects")
         const projects = projectsResponse.data || []
 
-        // Fetch tasks
+        // Fetch tasks - Admin has read access to tasks
         const tasksResponse = await axios.get("/api/tasks")
         const tasks = tasksResponse.data || []
+
+        // Fetch sprints - Admin has full access to sprints
+        const sprintsResponse = await axios.get("/api/sprints")
+        const sprints = sprintsResponse.data || []
+
+        // Fetch product backlogs - Admin has full access
+        const backlogsResponse = await axios.get("/api/productbacklogs")
+        const productBacklogs = backlogsResponse.data || []
+
+        // Fetch user stories - Admin has read access
+        const userStoriesResponse = await axios.get("/api/userstories")
+        const userStories = userStoriesResponse.data || []
 
         // Calculate stats
         const activeUsers = users.filter((user) => user.active).length
@@ -64,12 +96,33 @@ const AdminDashboard = () => {
           inactiveUsers: users.length - activeUsers,
           totalProjects: projects.length,
           totalTasks: tasks.length,
+          totalSprints: sprints.length,
+          totalBacklogs: productBacklogs.length,
+          totalUserStories: userStories.length,
         })
 
         setUsersByRole(roleData)
         setRecentUsers(users.slice(0, 5))
+        setRecentProjects(projects.slice(0, 3))
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
+        toast.error("Failed to load dashboard data")
+
+        // Set empty data
+        setStats({
+          totalUsers: 0,
+          activeUsers: 0,
+          inactiveUsers: 0,
+          totalProjects: 0,
+          totalTasks: 0,
+          totalSprints: 0,
+          totalBacklogs: 0,
+          totalUserStories: 0,
+        })
+
+        setUsersByRole([])
+        setRecentUsers([])
+        setRecentProjects([])
       } finally {
         setLoading(false)
       }
@@ -81,6 +134,7 @@ const AdminDashboard = () => {
   // Colors for the pie chart
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
+  // Update the return statement to include more admin-specific sections
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -89,7 +143,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 mr-4">
@@ -146,6 +200,42 @@ const AdminDashboard = () => {
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Tasks</p>
               <p className="text-xl font-semibold text-gray-800 dark:text-white">{stats.totalTasks}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-200 mr-4">
+              <Calendar size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Sprints</p>
+              <p className="text-xl font-semibold text-gray-800 dark:text-white">{stats.totalSprints}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-pink-100 dark:bg-pink-900 text-pink-600 dark:text-pink-200 mr-4">
+              <List size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Product Backlogs</p>
+              <p className="text-xl font-semibold text-gray-800 dark:text-white">{stats.totalBacklogs}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-teal-100 dark:bg-teal-900 text-teal-600 dark:text-teal-200 mr-4">
+              <Database size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">User Stories</p>
+              <p className="text-xl font-semibold text-gray-800 dark:text-white">{stats.totalUserStories}</p>
             </div>
           </div>
         </div>
@@ -258,26 +348,139 @@ const AdminDashboard = () => {
         </div>
       </div>
 
+      {/* Recent Projects */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Recent Projects</h2>
+          <Link to="/projects" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            View all
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {recentProjects.length > 0 ? (
+              recentProjects.map((project) => (
+                <Link
+                  key={project.id || project.projectId}
+                  to={`/projects/${project.id || project.projectId}`}
+                  className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
+                >
+                  <div className="flex items-start">
+                    <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 mr-3">
+                      <Briefcase size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-gray-800 dark:text-white">
+                          {project.projectName || project.name}
+                        </h3>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            project.status === "ACTIVE"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {project.status || "ACTIVE"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
+                        {project.description || "No description provided"}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-3 text-center py-4 text-gray-500 dark:text-gray-400">No projects found.</div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <Link
+            to="/projects/new"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus size={16} className="mr-2" />
+            Create New Project
+          </Link>
+        </div>
+      </div>
+
+      {/* System Management */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">System Management</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link
+            to="/users"
+            className="flex items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
+          >
+            <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 mr-3">
+              <Users size={16} />
+            </div>
+            <div>
+              <p className="font-medium text-gray-800 dark:text-white">User Management</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Manage system users</p>
+            </div>
+          </Link>
+
+          <Link
+            to="/projects"
+            className="flex items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
+          >
+            <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-200 mr-3">
+              <Briefcase size={16} />
+            </div>
+            <div>
+              <p className="font-medium text-gray-800 dark:text-white">Project Management</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Manage all projects</p>
+            </div>
+          </Link>
+
+          <Link
+            to="/cors-test"
+            className="flex items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
+          >
+            <div className="p-2 rounded-md bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-200 mr-3">
+              <Shield size={16} />
+            </div>
+            <div>
+              <p className="font-medium text-gray-800 dark:text-white">Security Settings</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">CORS and API security</p>
+            </div>
+          </Link>
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
-            to="/users"
+            to="/users/new"
             className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
-            Manage Users
+            <UserPlus size={16} className="mr-2" />
+            Add New User
           </Link>
           <Link
-            to="/projects"
+            to="/projects/new"
             className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
-            Manage Projects
+            <Plus size={16} className="mr-2" />
+            Create Project
           </Link>
           <Link
             to="/settings"
             className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
+            <Shield size={16} className="mr-2" />
             System Settings
           </Link>
         </div>
@@ -287,4 +490,3 @@ const AdminDashboard = () => {
 }
 
 export default AdminDashboard
-

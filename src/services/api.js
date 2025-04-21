@@ -51,9 +51,11 @@ api.interceptors.response.use(
     console.error("API Error:", error)
 
     if (error.response) {
-      console.error("Error response status:", error.response.status)
-      console.error("Error response data:", error.response.data)
-      console.error("Error response headers:", error.response.headers)
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error("Error data:", error.response.data)
+      console.error("Error status:", error.response.status)
+      console.error("Error headers:", error.response.headers)
       console.error("Request that caused error:", {
         url: error.config.url,
         method: error.config.method,
@@ -61,11 +63,13 @@ api.interceptors.response.use(
         params: error.config.params,
       })
     } else if (error.request) {
+      // The request was made but no response was received
       console.error("No response received. Request:", error.request)
       console.error("Request URL:", error.config.url)
       console.error("Request method:", error.config.method)
       console.error("Request headers:", error.config.headers)
     } else {
+      // Something happened in setting up the request that triggered an Error
       console.error("Error message:", error.message)
     }
 
@@ -85,4 +89,3 @@ api.interceptors.response.use(
 )
 
 export default api
-

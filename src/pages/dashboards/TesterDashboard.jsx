@@ -6,6 +6,7 @@ import axios from "axios"
 import { CheckSquare, AlertTriangle, CheckCircle, XCircle, Calendar } from "react-feather"
 import { useAuth } from "../../contexts/AuthContext"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { toast } from "react-toastify"
 
 const TesterDashboard = () => {
   const { user } = useAuth()
@@ -18,10 +19,13 @@ const TesterDashboard = () => {
   })
   const [currentSprint, setCurrentSprint] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [recentTestResults, setRecentTestResults] = useState([])
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        setLoading(true)
+
         // Fetch tasks assigned to the user for testing
         const tasksResponse = await axios.get(`/api/tasks?assignedUserId=${user.id}`)
         const userTasks = tasksResponse.data || []
@@ -49,6 +53,17 @@ const TesterDashboard = () => {
         })
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
+        toast.error("Failed to load dashboard data")
+
+        // Set empty data
+        setTasks([])
+        setCurrentSprint(null)
+        setStats({
+          totalTasks: 0,
+          passedTasks: 0,
+          failedTasks: 0,
+          pendingTasks: 0,
+        })
       } finally {
         setLoading(false)
       }
@@ -56,6 +71,51 @@ const TesterDashboard = () => {
 
     fetchDashboardData()
   }, [user.id])
+
+  // Function to update task status (PASS/FAIL)
+  const updateTaskStatus = async (taskId, newStatus) => {
+    try {
+      await axios.post(`/api/tasks/${taskId}/update-status`, null, { params: { status: newStatus } })
+
+      // Update local state
+      setTasks(tasks.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task)))
+
+      // Update stats
+      const updatedTasks = tasks.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task))
+
+      const passed = updatedTasks.filter((task) => task.status === "DONE").length
+      const failed = updatedTasks.filter((task) => task.status === "FAILED").length
+      const pending = updatedTasks.filter((task) => task.status === "TESTING").length
+
+      setStats({
+        totalTasks: updatedTasks.length,
+        passedTasks: passed,
+        failedTasks: failed,
+        pendingTasks: pending,
+      })
+
+      toast.success(`Task marked as ${newStatus}`)
+    } catch (error) {
+      console.error("Error updating task status:", error)
+      toast.error("Failed to update task status")
+    }
+  }
+
+  // Function to add test comment
+  const addTestComment = async (taskId, comment) => {
+    try {
+      await axios.post(`/api/tasks/${taskId}/comments`, null, {
+        params: {
+          userId: user.id,
+          content: comment,
+        },
+      })
+      toast.success("Test comment added successfully")
+    } catch (error) {
+      console.error("Error adding test comment:", error)
+      toast.error("Failed to add test comment")
+    }
+  }
 
   // Data for test status pie chart
   const testStatusData = [
@@ -192,66 +252,167 @@ const TesterDashboard = () => {
           )}
         </div>
 
-        {/* Tasks to Test */}
+        {/* Recent Test Results */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Tasks to Test</h2>
-            <Link to="/tasks" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              View all
-            </Link>
-          </div>
-
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Recent Test Results</h2>
           {loading ? (
             <div className="flex justify-center py-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
             </div>
           ) : (
             <div className="space-y-3">
-              {tasks.length > 0 ? (
-                tasks.slice(0, 5).map((task) => (
-                  <Link
-                    key={task.id}
-                    to={`/tasks/${task.id}`}
-                    className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    <div className="flex items-center justify-between">
+              {recentTestResults.length > 0 ? (
+                recentTestResults.map((result) => (
+                  <div key={result.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-white">{result.taskTitle}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(result.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          result.status === "PASSED"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                        }`}
+                      >
+                        {result.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center py-4 text-gray-500 dark:text-gray-400">No recent test results.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Tasks to Test */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Tasks to Test</h2>
+          <Link to="/tasks" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            View all
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {tasks.length > 0 ? (
+              tasks
+                .filter((task) => task.status === "TESTING")
+                .map((task) => (
+                  <div key={task.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex justify-between items-start">
                       <div>
                         <p className="font-medium text-gray-800 dark:text-white">{task.title}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                           {task.description?.substring(0, 60) || "No description"}
                           {task.description?.length > 60 ? "..." : ""}
                         </p>
                       </div>
-                      <div className="flex items-center">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${
-                            task.status === "DONE"
-                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                              : task.status === "FAILED"
-                                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                          }`}
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => updateTaskStatus(task.id, "DONE")}
+                          className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-md text-xs hover:bg-green-200 dark:hover:bg-green-800"
                         >
-                          {task.status || "TESTING"}
-                        </span>
+                          Pass
+                        </button>
+                        <button
+                          onClick={() => updateTaskStatus(task.id, "FAILED")}
+                          className="px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-md text-xs hover:bg-red-200 dark:hover:bg-red-800"
+                        >
+                          Fail
+                        </button>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 ))
-              ) : (
-                <p className="text-center py-4 text-gray-500 dark:text-gray-400">No tasks assigned for testing.</p>
-              )}
-            </div>
-          )}
-
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <Link
-              to="/tasks/testing"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-            >
-              View Testing Tasks
-            </Link>
+            ) : (
+              <p className="text-center py-4 text-gray-500 dark:text-gray-400">No tasks assigned for testing.</p>
+            )}
           </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <Link
+            to="/tasks/testing"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            View All Testing Tasks
+          </Link>
+        </div>
+      </div>
+
+      {/* Bug Reporting */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Bug Reporting</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div className="flex items-center">
+              <div className="p-2 rounded-md bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-200 mr-3">
+                <XCircle size={16} />
+              </div>
+              <div>
+                <p className="font-medium text-gray-800 dark:text-white">Report Bug</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Create detailed bug reports</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div className="flex items-center">
+              <div className="p-2 rounded-md bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-200 mr-3">
+                <AlertTriangle size={16} />
+              </div>
+              <div>
+                <p className="font-medium text-gray-800 dark:text-white">Test Cases</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Create and manage test cases</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <Link
+            to="/bugs/report"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Report New Bug
+          </Link>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link
+            to="/tasks/testing"
+            className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            View Testing Tasks
+          </Link>
+          <Link
+            to="/bugs/report"
+            className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Report Bug
+          </Link>
+          <Link
+            to="/test-cases"
+            className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Manage Test Cases
+          </Link>
         </div>
       </div>
     </div>
@@ -259,4 +420,3 @@ const TesterDashboard = () => {
 }
 
 export default TesterDashboard
-

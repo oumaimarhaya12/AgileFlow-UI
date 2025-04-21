@@ -26,24 +26,9 @@ const EditProject = () => {
     const fetchProject = async () => {
       try {
         setLoading(true)
-        let projectData
 
-        try {
-          const response = await projectService.getProjectById(id)
-          projectData = response.data
-        } catch (error) {
-          console.error("Error fetching project:", error)
-          // Use mock data if API fails
-          projectData = projectService.getMockProjects().find((p) => p.id.toString() === id) || {
-            id: id,
-            projectName: "Project " + id,
-            description: "This is a mock project",
-            status: "ACTIVE",
-            startDate: "2023-01-01",
-            endDate: "2023-12-31",
-          }
-          toast.warning("Using mock project data due to API error")
-        }
+        const response = await projectService.getProjectById(id)
+        const projectData = response.data
 
         // Format dates for input fields (YYYY-MM-DD)
         const formatDate = (dateString) => {
@@ -277,4 +262,3 @@ const EditProject = () => {
 }
 
 export default EditProject
-

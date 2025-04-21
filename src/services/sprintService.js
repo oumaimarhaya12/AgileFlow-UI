@@ -84,5 +84,11 @@ export const sprintService = {
    * @returns {Promise} - Promise with updated sprint
    */
   removeSprintFromSprintBacklog: (sprintId) => api.post(`/api/sprints/${sprintId}/remove-backlog`),
-}
 
+  /**
+   * Get sprints by project ID
+   * @param {number} projectId - Project ID
+   * @returns {Promise} - Promise with sprints list
+   */
+  getSprintsByProjectId: (projectId) => api.get(`/api/sprints/project/${projectId}`),
+}

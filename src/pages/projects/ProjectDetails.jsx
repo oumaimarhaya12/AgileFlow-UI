@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
 import { Edit, Trash2, Users, List, Calendar, CheckSquare, ArrowLeft, Clock } from "react-feather"
 import { useAuth } from "../../contexts/AuthContext"
-import { projectService } from "../../services"
+import { projectService, userService, taskService, sprintService } from "../../services"
 import { toast } from "react-toastify"
 
 const ProjectDetails = () => {
@@ -23,29 +23,9 @@ const ProjectDetails = () => {
       try {
         setLoading(true)
 
-        // Try to fetch project details
-        let projectData
-        const teamMembersData = []
-        const tasksData = []
-        const sprintsData = []
-
-        try {
-          const projectResponse = await projectService.getProjectById(id)
-          projectData = projectResponse.data
-        } catch (error) {
-          console.error("Error fetching project details:", error)
-          // Use mock data if API fails
-          projectData = projectService.getMockProjects().find((p) => p.id.toString() === id) || {
-            id: id,
-            name: "Project " + id,
-            description: "This is a mock project",
-            status: "ACTIVE",
-            startDate: "2023-01-01",
-            endDate: "2023-12-31",
-            ownerName: "Product Owner",
-          }
-          toast.warning("Using mock project data due to API error")
-        }
+        // Fetch project details
+        const projectResponse = await projectService.getProjectById(id)
+        const projectData = projectResponse.data
 
         // Map the project data to ensure consistent property names
         const mappedProject = {
@@ -60,44 +40,25 @@ const ProjectDetails = () => {
 
         setProject(mappedProject)
 
-        // Set mock data for team members, tasks, and sprints
-        setTeamMembers([
-          { id: 1, username: "developer1", role: "DEVELOPER" },
-          { id: 2, username: "tester1", role: "TESTER" },
-          { id: 3, username: "scrummaster", role: "SCRUM_MASTER" },
-        ])
+        // Fetch team members, tasks, and sprints
+        // These will be implemented with real API calls when those endpoints are available
+        const teamMembersResponse = await userService.getUsersByProjectId(id)
+        setTeamMembers(teamMembersResponse.data || [])
 
-        setTasks([
-          {
-            id: 1,
-            title: "Implement login",
-            description: "Create login functionality",
-            status: "DONE",
-            projectId: Number(id),
-          },
-          {
-            id: 2,
-            title: "Design dashboard",
-            description: "Create dashboard UI",
-            status: "IN_PROGRESS",
-            projectId: Number(id),
-          },
-          {
-            id: 3,
-            title: "Add user management",
-            description: "Implement user CRUD",
-            status: "TODO",
-            projectId: Number(id),
-          },
-        ])
+        const tasksResponse = await taskService.getAllTasks()
+        const projectTasks = tasksResponse.data.filter((task) => task.projectId === Number.parseInt(id)) || []
+        setTasks(projectTasks)
 
-        setSprints([
-          { id: 1, name: "Sprint 1", startDate: "2023-01-01", endDate: "2023-01-14", projectId: Number(id) },
-          { id: 2, name: "Sprint 2", startDate: "2023-01-15", endDate: "2023-01-28", projectId: Number(id) },
-        ])
+        const sprintsResponse = await sprintService.getSprintsByProjectId(id)
+        setSprints(sprintsResponse.data || [])
       } catch (error) {
         console.error("Error in project details component:", error)
         toast.error("Failed to load project details")
+
+        // Set empty data
+        setTeamMembers([])
+        setTasks([])
+        setSprints([])
       } finally {
         setLoading(false)
       }

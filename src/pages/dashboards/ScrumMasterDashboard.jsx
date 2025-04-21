@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import axios from "axios"
-import { Calendar, CheckSquare, Users, TrendingUp, Clock } from "react-feather"
+import { Calendar, CheckSquare, Users, TrendingUp, Clock, Briefcase } from "react-feather"
 import { useAuth } from "../../contexts/AuthContext"
+import { toast } from "react-toastify"
 import {
   LineChart,
   Line,
@@ -20,6 +21,7 @@ import {
 
 const ScrumMasterDashboard = () => {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [stats, setStats] = useState({
     activeSprints: 0,
     totalTasks: 0,
@@ -30,51 +32,100 @@ const ScrumMasterDashboard = () => {
   })
   const [currentSprint, setCurrentSprint] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  // Add projects state and update the useEffect to fetch projects
+  const [projects, setProjects] = useState([])
+
+  // Update the fetchDashboardData function to use the correct API endpoints
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true)
+
+      // Fetch active sprints - Scrum Masters have full access to sprints
+      const today = new Date().toISOString().split("T")[0]
+      const sprintsResponse = await axios.get(`/api/sprints/active?date=${today}`)
+      const activeSprints = sprintsResponse.data || []
+
+      // Fetch team members - Scrum Masters can view users
+      const teamResponse = await axios.get("/api/users/role?role=DEVELOPER")
+      const teamMembers = teamResponse.data || []
+
+      // Fetch all projects - Scrum Masters have read access to projects
+      const projectsResponse = await axios.get("/api/projects")
+      const projectsData = projectsResponse.data || []
+
+      // Fetch tasks - Scrum Masters have full access to tasks
+      const tasksResponse = await axios.get("/api/tasks")
+      const tasksData = tasksResponse.data || []
+
+      // Fetch sprint backlogs - Scrum Masters have full access to sprint backlogs
+      let sprintBacklogs = []
+      if (activeSprints.length > 0 && activeSprints[0].sprintBacklogId) {
+        const backlogResponse = await axios.get(`/api/sprint-backlogs/${activeSprints[0].sprintBacklogId}`)
+        sprintBacklogs = [backlogResponse.data]
+      }
+
+      // Map projects to ensure consistent property names
+      const mappedProjects = projectsData.map((project) => ({
+        id: project.projectId || project.id,
+        name: project.projectName || project.name,
+        description: project.description || "",
+        status: project.status || "ACTIVE",
+        startDate: project.startDate,
+        endDate: project.endDate,
+      }))
+
+      setProjects(mappedProjects)
+
+      // Set current sprint (first active sprint)
+      let sprintProgress = 0
+      if (activeSprints.length > 0) {
+        setCurrentSprint(activeSprints[0])
+
+        // Try to fetch sprint progress using the sprint backlog API
+        try {
+          const progressResponse = await axios.get(`/api/sprint-backlogs/${activeSprints[0].sprintBacklogId}/progress`)
+          sprintProgress = progressResponse.data || 0
+        } catch (error) {
+          console.error("Error fetching sprint progress:", error)
+          sprintProgress = 0
+        }
+      }
+
+      // Calculate task statistics from the fetched tasks
+      const totalTasks = tasksData.length
+      const completedTasks = tasksData.filter((task) => task.status === "DONE").length
+      const inProgressTasks = tasksData.filter((task) => task.status === "IN_PROGRESS").length
+
+      // Set stats with actual data
+      setStats({
+        activeSprints: activeSprints.length,
+        totalTasks: totalTasks,
+        completedTasks: completedTasks,
+        teamMembers: teamMembers.length,
+        sprintProgress: sprintProgress,
+        velocity: 0, // This would need to be calculated from historical sprint data
+      })
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+      toast.error("Failed to load dashboard data")
+
+      // Set empty data
+      setStats({
+        activeSprints: 0,
+        totalTasks: 0,
+        completedTasks: 0,
+        teamMembers: 0,
+        sprintProgress: 0,
+        velocity: 0,
+      })
+      setProjects([])
+      setCurrentSprint(null)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setIsLoading(true)
-        // Fetch active sprints
-        const sprintsResponse = await axios.get("/api/sprints/active")
-        const activeSprints = sprintsResponse.data || []
-
-        // Fetch team members
-        const teamResponse = await axios.get("/api/users/role?role=DEVELOPER")
-        const teamMembers = teamResponse.data || []
-
-        // Set current sprint (first active sprint)
-        if (activeSprints.length > 0) {
-          setCurrentSprint(activeSprints[0])
-
-          // Fetch sprint progress
-          const progressResponse = await axios.get(`/api/sprint-backlogs/${activeSprints[0].sprintBacklogId}/progress`)
-
-          setStats({
-            activeSprints: activeSprints.length,
-            totalTasks: 25, // Mock data
-            completedTasks: 12, // Mock data
-            teamMembers: teamMembers.length,
-            sprintProgress: progressResponse.data || 0,
-            velocity: 18, // Mock data
-          })
-        } else {
-          setStats({
-            activeSprints: 0,
-            totalTasks: 0,
-            completedTasks: 0,
-            teamMembers: teamMembers.length,
-            sprintProgress: 0,
-            velocity: 0,
-          })
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchDashboardData()
   }, [])
 
@@ -101,6 +152,29 @@ const ScrumMasterDashboard = () => {
     { sprint: "Sprint 4", velocity: 20 },
     { sprint: "Sprint 5", velocity: 18 },
   ]
+
+  // Add these functions to handle sprint and task management
+  // Add these functions after the fetchDashboardData function
+  // Add these functions after the fetchDashboardData function
+
+  const createNewSprint = async () => {
+    try {
+      // Navigate to sprint creation page
+      navigate("/sprints/new")
+    } catch (error) {
+      console.error("Error navigating to sprint creation:", error)
+      toast.error("Failed to navigate to sprint creation page")
+    }
+  }
+
+  const manageTasks = () => {
+    navigate("/tasks")
+  }
+
+  const viewTeamMembers = () => {
+    // Scrum Masters can view users but not manage them
+    navigate("/users")
+  }
 
   return (
     <div className="space-y-6">
@@ -249,6 +323,125 @@ const ScrumMasterDashboard = () => {
         </div>
       </div>
 
+      {/* Projects Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Projects</h2>
+          <Link to="/projects" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            View all
+          </Link>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {projects.length > 0 ? (
+              projects.slice(0, 4).map((project) => (
+                <Link
+                  key={project.id}
+                  to={`/projects/${project.id}`}
+                  className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
+                >
+                  <div className="flex items-start">
+                    <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 mr-3">
+                      <Briefcase size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-gray-800 dark:text-white">{project.name}</h3>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            project.status === "ACTIVE"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {project.status || "ACTIVE"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
+                        {project.description || "No description provided"}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-2 text-center py-4 text-gray-500 dark:text-gray-400">No projects found.</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Sprint Management */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Sprint Management</h2>
+          <Link to="/sprints" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            View all sprints
+          </Link>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center">
+                <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 mr-3">
+                  <Calendar size={16} />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800 dark:text-white">Create Sprint</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Plan and schedule new sprints</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center">
+                <div className="p-2 rounded-md bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-200 mr-3">
+                  <CheckSquare size={16} />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800 dark:text-white">Sprint Backlog</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Manage sprint user stories</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center">
+                <div className="p-2 rounded-md bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-200 mr-3">
+                  <Clock size={16} />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800 dark:text-white">Sprint Planning</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Organize sprint planning meetings</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center">
+                <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-200 mr-3">
+                  <TrendingUp size={16} />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800 dark:text-white">Sprint Review</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Conduct sprint reviews and retrospectives</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Quick Actions */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quick Actions</h2>
@@ -266,10 +459,10 @@ const ScrumMasterDashboard = () => {
             Manage Tasks
           </Link>
           <Link
-            to="/users"
+            to="/backlogs/sprint/new"
             className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
-            Team Members
+            Create Sprint Backlog
           </Link>
         </div>
       </div>

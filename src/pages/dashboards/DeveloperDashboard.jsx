@@ -3,9 +3,23 @@
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import axios from "axios"
-import { CheckSquare, Clock, AlertCircle, CheckCircle, Calendar } from "react-feather"
+import { CheckSquare, Clock, AlertCircle, CheckCircle, Calendar, Code } from "react-feather"
 import { useAuth } from "../../contexts/AuthContext"
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts"
+import { toast } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
 
 const DeveloperDashboard = () => {
   const { user } = useAuth()
@@ -15,20 +29,40 @@ const DeveloperDashboard = () => {
     completedTasks: 0,
     inProgressTasks: 0,
     pendingTasks: 0,
+    loggedHours: 0,
   })
   const [currentSprint, setCurrentSprint] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [projects, setProjects] = useState([])
+  const [recentComments, setRecentComments] = useState([])
+  const [tasksByPriority, setTasksByPriority] = useState([])
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch tasks assigned to the user
+        setLoading(true)
+
+        // Fetch tasks assigned to the user - Developers can view tasks assigned to them
         const tasksResponse = await axios.get(`/api/tasks?assignedUserId=${user.id}`)
         const userTasks = tasksResponse.data || []
 
-        // Fetch active sprint
+        // Fetch active sprint - Developers can view active sprints
         const sprintsResponse = await axios.get("/api/sprints/active")
         const activeSprints = sprintsResponse.data || []
+
+        // Fetch projects the developer is assigned to - Developers can view projects they're assigned to
+        const projectsResponse = await axios.get(`/api/projects/user/${user.id}`)
+        const userProjects = projectsResponse.data || []
+
+        // Fetch recent comments - Developers can view comments on tasks
+        let comments = []
+        try {
+          const commentsResponse = await axios.get(`/api/tasks/comments/recent?userId=${user.id}`)
+          comments = commentsResponse.data || []
+        } catch (error) {
+          console.error("Error fetching comments:", error)
+          comments = []
+        }
 
         // Set tasks and current sprint
         setTasks(userTasks)
@@ -40,15 +74,53 @@ const DeveloperDashboard = () => {
         const completed = userTasks.filter((task) => task.status === "DONE").length
         const inProgress = userTasks.filter((task) => task.status === "IN_PROGRESS").length
         const pending = userTasks.filter((task) => task.status === "TODO").length
+        const totalLoggedHours = userTasks.reduce((sum, task) => sum + (task.loggedHours || 0), 0)
 
         setStats({
           totalTasks: userTasks.length,
           completedTasks: completed,
           inProgressTasks: inProgress,
           pendingTasks: pending,
+          loggedHours: totalLoggedHours,
         })
+
+        // Set projects
+        setProjects(userProjects)
+
+        // Set recent comments
+        setRecentComments(comments)
+
+        // Calculate tasks by priority
+        const highPriority = userTasks.filter((task) => task.priority === 1).length
+        const mediumPriority = userTasks.filter((task) => task.priority === 2).length
+        const lowPriority = userTasks.filter((task) => task.priority === 3).length
+
+        setTasksByPriority([
+          { name: "High", value: highPriority, color: "#EF4444" },
+          { name: "Medium", value: mediumPriority, color: "#F59E0B" },
+          { name: "Low", value: lowPriority, color: "#3B82F6" },
+        ])
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
+        toast.error("Failed to load dashboard data")
+
+        // Set empty data
+        setTasks([])
+        setCurrentSprint(null)
+        setStats({
+          totalTasks: 0,
+          completedTasks: 0,
+          inProgressTasks: 0,
+          pendingTasks: 0,
+          loggedHours: 0,
+        })
+        setProjects([])
+        setRecentComments([])
+        setTasksByPriority([
+          { name: "High", value: 0, color: "#EF4444" },
+          { name: "Medium", value: 0, color: "#F59E0B" },
+          { name: "Low", value: 0, color: "#3B82F6" },
+        ])
       } finally {
         setLoading(false)
       }
@@ -63,6 +135,49 @@ const DeveloperDashboard = () => {
     { name: "In Progress", value: stats.inProgressTasks, color: "#3B82F6" },
     { name: "Pending", value: stats.pendingTasks, color: "#F59E0B" },
   ].filter((item) => item.value > 0)
+
+  // Function to update task status - Developers can update task status
+  const updateTaskStatus = async (taskId, newStatus) => {
+    try {
+      await axios.post(`/api/tasks/${taskId}/update-status`, null, { params: { status: newStatus } })
+      // Refresh tasks after update
+      const tasksResponse = await axios.get(`/api/tasks?assignedUserId=${user.id}`)
+      setTasks(tasksResponse.data || [])
+      // Update stats
+      const updatedTasks = tasksResponse.data || []
+      const completed = updatedTasks.filter((task) => task.status === "DONE").length
+      const inProgress = updatedTasks.filter((task) => task.status === "IN_PROGRESS").length
+      const pending = updatedTasks.filter((task) => task.status === "TODO").length
+      setStats({
+        ...stats,
+        totalTasks: updatedTasks.length,
+        completedTasks: completed,
+        inProgressTasks: inProgress,
+        pendingTasks: pending,
+      })
+    } catch (error) {
+      console.error("Error updating task status:", error)
+    }
+  }
+
+  // Function to log hours on a task - Developers can log hours on tasks
+  const logHours = async (taskId, hours) => {
+    try {
+      await axios.post(`/api/tasks/${taskId}/log-hours`, null, { params: { hours } })
+      // Refresh tasks after update
+      const tasksResponse = await axios.get(`/api/tasks?assignedUserId=${user.id}`)
+      setTasks(tasksResponse.data || [])
+      // Update logged hours stat
+      const updatedTasks = tasksResponse.data || []
+      const totalLoggedHours = updatedTasks.reduce((sum, task) => sum + (task.loggedHours || 0), 0)
+      setStats({
+        ...stats,
+        loggedHours: totalLoggedHours,
+      })
+    } catch (error) {
+      console.error("Error logging hours:", error)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -192,57 +307,162 @@ const DeveloperDashboard = () => {
           )}
         </div>
 
-        {/* My Tasks */}
+        {/* Tasks by Priority */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">My Tasks</h2>
-            <Link to="/tasks" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              View all
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="flex justify-center py-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Tasks by Priority</h2>
+          {tasksByPriority.some((item) => item.value > 0) ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={tasksByPriority} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" />
+                  <Tooltip />
+                  <Bar dataKey="value" name="Tasks">
+                    {tasksByPriority.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           ) : (
-            <div className="space-y-3">
-              {tasks.length > 0 ? (
-                tasks.slice(0, 5).map((task) => (
-                  <Link
-                    key={task.id}
-                    to={`/tasks/${task.id}`}
-                    className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-800 dark:text-white">{task.title}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {task.description?.substring(0, 60) || "No description"}
-                          {task.description?.length > 60 ? "..." : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${
-                            task.status === "DONE"
-                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                              : task.status === "IN_PROGRESS"
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                          }`}
-                        >
-                          {task.status || "TODO"}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))
-              ) : (
-                <p className="text-center py-4 text-gray-500 dark:text-gray-400">No tasks assigned to you.</p>
-              )}
+            <div className="flex justify-center items-center h-64 text-gray-500 dark:text-gray-400">
+              No tasks available
             </div>
           )}
+        </div>
+      </div>
+
+      {/* My Tasks */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">My Tasks</h2>
+          <Link to="/tasks" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            View all
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {tasks.length > 0 ? (
+              tasks.slice(0, 5).map((task) => (
+                <Link
+                  key={task.id}
+                  to={`/tasks/${task.id}`}
+                  className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-800 dark:text-white">{task.title}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {task.description?.substring(0, 60) || "No description"}
+                        {task.description?.length > 60 ? "..." : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          task.status === "DONE"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : task.status === "IN_PROGRESS"
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                        }`}
+                      >
+                        {task.status || "TODO"}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <p className="text-center py-4 text-gray-500 dark:text-gray-400">No tasks assigned to you.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Projects */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">My Projects</h2>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {projects.length > 0 ? (
+              projects.map((project) => (
+                <Link
+                  key={project.id || project.projectId}
+                  to={`/projects/${project.id || project.projectId}`}
+                  className="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
+                >
+                  <div className="flex items-start">
+                    <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 mr-3">
+                      <Code size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-gray-800 dark:text-white">
+                          {project.projectName || project.name}
+                        </h3>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            project.status === "ACTIVE"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {project.status || "ACTIVE"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
+                        {project.description || "No description provided"}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-2 text-center py-4 text-gray-500 dark:text-gray-400">
+                No projects assigned to you.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link
+            to="/tasks"
+            className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            View My Tasks
+          </Link>
+          <Link
+            to={currentSprint ? `/backlogs/sprint/${currentSprint.id}` : "/sprints"}
+            className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Sprint Backlog
+          </Link>
+          <Link
+            to="/projects"
+            className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            View Projects
+          </Link>
         </div>
       </div>
     </div>
@@ -250,4 +470,3 @@ const DeveloperDashboard = () => {
 }
 
 export default DeveloperDashboard
-

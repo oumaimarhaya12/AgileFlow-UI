@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Briefcase, List, CheckSquare, Users, Calendar, ArrowUp, ArrowDown } from "react-feather"
+import { Briefcase, List, CheckSquare, Users, Calendar, ArrowUp, ArrowDown, FileText, BookOpen } from "react-feather"
 import { useAuth } from "../../contexts/AuthContext"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { projectService } from "../../services"
 import { toast } from "react-toastify"
+import axios from "axios"
 
 const ProductOwnerDashboard = () => {
   const { user } = useAuth()
@@ -23,80 +23,92 @@ const ProductOwnerDashboard = () => {
   const [taskStatusData, setTaskStatusData] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true)
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
 
-        // Try to fetch project statistics using the dedicated endpoint
-        let statsData
-        let projectsData = []
+      // API calls for statistics
+      const statsResponse = await axios.get("/api/projects/statistics")
+      const statsData = statsResponse.data
 
-        try {
-          const statsResponse = await projectService.getProjectStatistics()
-          statsData = statsResponse.data
-        } catch (error) {
-          console.error("Error fetching project statistics:", error)
-          // Use mock data if API fails
-          statsData = projectService.getMockStatistics()
-          toast.warning("Using mock statistics data due to API error")
-        }
+      // API calls for projects - Product Owner can view all projects
+      const projectsResponse = await axios.get("/api/projects")
+      const projectsData = projectsResponse.data || []
 
-        // Try to fetch projects assigned to the current user
-        try {
-          const projectsResponse = await projectService.getProjectsByUser(user.id)
-          projectsData = projectsResponse.data || []
-        } catch (error) {
-          console.error("Error fetching user projects:", error)
-          // Use mock data if API fails
-          projectsData = projectService.getMockProjects()
-          toast.warning("Using mock project data due to API error")
-        }
+      // API calls for product backlogs - Product Owner has full access
+      const backlogsResponse = await axios.get("/api/productbacklogs")
+      const backlogsData = backlogsResponse.data || []
 
-        // Generate mock task status data
-        const taskStatusCounts = {
-          TODO: 15,
-          IN_PROGRESS: 10,
-          TESTING: 8,
-          DONE: 12,
-        }
+      // API calls for user stories
+      const userStoriesResponse = await axios.get("/api/userstories")
+      const userStoriesData = userStoriesResponse.data || []
 
-        const taskStatusChartData = Object.keys(taskStatusCounts).map((status) => ({
-          name: status.replace("_", " "),
-          value: taskStatusCounts[status],
-        }))
+      // API calls for team members - Product Owner can view users
+      const teamResponse = await axios.get("/api/users/roles", {
+        params: { roles: ["DEVELOPER", "TESTER", "SCRUM_MASTER"] },
+      })
+      const teamMembersData = teamResponse.data || []
 
-        // Update state with fetched or mock data
-        setStats({
-          projects: statsData.totalProjects || 0,
-          backlogs: statsData.projectsWithBacklog || 0,
-          tasks: statsData.totalTasks || 0,
-          completedTasks: statsData.completedTasks || 0,
-          users: statsData.totalUsers || 0,
-          sprints: statsData.totalSprints || 0,
-        })
+      // Get task status data
+      const tasksResponse = await axios.get("/api/tasks")
+      const tasksData = tasksResponse.data || []
 
-        // Sort projects by most recently created/updated
-        const sortedProjects = projectsData
-          ? [...projectsData].sort((a, b) => {
-              // Sort by creation date if available, otherwise by ID
-              if (a.createdAt && b.createdAt) {
-                return new Date(b.createdAt) - new Date(a.createdAt)
-              }
-              return b.id - a.id
-            })
-          : []
-
-        setRecentProjects(sortedProjects.slice(0, 5))
-        setTaskStatusData(taskStatusChartData)
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error)
-        toast.error("Failed to load dashboard data")
-      } finally {
-        setLoading(false)
+      const taskStatusCounts = {
+        TODO: tasksData.filter((task) => task.status === "TODO").length,
+        IN_PROGRESS: tasksData.filter((task) => task.status === "IN_PROGRESS").length,
+        TESTING: tasksData.filter((task) => task.status === "TESTING").length,
+        DONE: tasksData.filter((task) => task.status === "DONE").length,
       }
-    }
 
+      const taskStatusChartData = Object.keys(taskStatusCounts).map((status) => ({
+        name: status.replace("_", " "),
+        value: taskStatusCounts[status],
+      }))
+
+      // Update state with fetched data
+      setStats({
+        projects: statsData.totalProjects || projectsData.length || 0,
+        backlogs: statsData.projectsWithBacklog || backlogsData.length || 0,
+        tasks: statsData.totalTasks || tasksData.length || 0,
+        completedTasks: tasksData.filter((task) => task.status === "DONE").length || 0,
+        users: statsData.totalUsers || teamMembersData.length || 0,
+        sprints: statsData.totalSprints || 0,
+      })
+
+      // Sort projects by most recently created/updated
+      const sortedProjects = projectsData
+        ? [...projectsData].sort((a, b) => {
+            // Sort by creation date if available, otherwise by ID
+            if (a.createdAt && b.createdAt) {
+              return new Date(b.createdAt) - new Date(a.createdAt)
+            }
+            return b.id - a.id
+          })
+        : []
+
+      setRecentProjects(sortedProjects.slice(0, 5))
+      setTaskStatusData(taskStatusChartData)
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+      toast.error("Failed to load dashboard data")
+
+      // Set empty data
+      setStats({
+        projects: 0,
+        backlogs: 0,
+        tasks: 0,
+        completedTasks: 0,
+        users: 0,
+        sprints: 0,
+      })
+      setRecentProjects([])
+      setTaskStatusData([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchDashboardData()
   }, [user.id])
 
@@ -297,9 +309,150 @@ const ProductOwnerDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Product Backlogs and User Stories */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Product Backlogs */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Product Backlogs</h2>
+            <Link to="/backlogs/product" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              View all
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentProjects.length > 0 ? (
+                recentProjects.slice(0, 3).map((project) => (
+                  <Link
+                    key={project.projectId || project.id}
+                    to={`/backlogs/product/${project.projectId || project.id}`}
+                    className="block p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    <div className="flex items-center">
+                      <div className="p-2 rounded-md bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-200 mr-3">
+                        <BookOpen size={16} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-white">
+                          {project.projectName || project.name} Backlog
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Manage user stories and requirements</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <p className="text-center py-4 text-gray-500 dark:text-gray-400">
+                  No product backlogs found. Create a project first!
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Link
+              to="/backlogs/product/new"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Create New Product Backlog
+            </Link>
+          </div>
+        </div>
+
+        {/* User Stories */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">User Stories</h2>
+            <Link to="/userstories" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              View all
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center">
+                  <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200 mr-3">
+                    <FileText size={16} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800 dark:text-white">Create User Stories</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Define requirements for your projects</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center">
+                  <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-200 mr-3">
+                    <FileText size={16} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800 dark:text-white">Prioritize User Stories</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Set priorities for development</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center">
+                  <div className="p-2 rounded-md bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-200 mr-3">
+                    <FileText size={16} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800 dark:text-white">Define Acceptance Criteria</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Set clear completion requirements</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Link
+              to="/userstories/new"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Create New User Story
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link
+            to="/projects/new"
+            className="flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Create New Project
+          </Link>
+          <Link
+            to="/backlogs/product/new"
+            className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Create Product Backlog
+          </Link>
+          <Link
+            to="/userstories/new"
+            className="flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Create User Story
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
 
 export default ProductOwnerDashboard
-
