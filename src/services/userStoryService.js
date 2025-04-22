@@ -77,4 +77,3 @@ export const userStoryService = {
   updateAcceptanceCriteria: (userStoryId, acceptanceCriteria) =>
     api.patch(`/api/userstories/${userStoryId}/criteria`, acceptanceCriteria),
 }
-

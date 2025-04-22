@@ -68,4 +68,3 @@ export const sprintBacklogService = {
    */
   calculateSprintProgress: (sprintBacklogId) => api.get(`/api/sprint-backlogs/${sprintBacklogId}/progress`),
 }
-

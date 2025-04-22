@@ -446,4 +446,3 @@ const SprintBacklog = () => {
 }
 
 export default SprintBacklog
-

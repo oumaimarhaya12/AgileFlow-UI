@@ -20,15 +20,22 @@ const Projects = () => {
         setLoading(true)
         let projectsData = []
 
-        // If user is admin, fetch all projects, otherwise fetch user's projects
-        let response
-        if (user.role === "ADMIN") {
-          response = await projectService.getAllProjects()
-        } else {
-          response = await projectService.getProjectsByUser(user.id)
-        }
+        try {
+          // If user is admin, fetch all projects, otherwise fetch user's projects
+          let response
+          if (user.role === "ADMIN") {
+            response = await projectService.getAllProjects()
+          } else {
+            response = await projectService.getProjectsByUser(user.id)
+          }
 
-        projectsData = response.data || []
+          projectsData = response.data || []
+        } catch (error) {
+          console.error("Error fetching projects:", error)
+          // Use mock data if API fails
+          projectsData = projectService.getMockProjects()
+          toast.warning("Using mock project data due to API error")
+        }
 
         // Map the data to ensure consistent property names
         const mappedProjects = projectsData.map((project) => ({

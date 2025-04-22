@@ -43,4 +43,3 @@ export const productBacklogService = {
    */
   getProductBacklogByTitle: (title) => api.get(`/api/productbacklogs/title/${title}`),
 }
-

@@ -45,15 +45,6 @@ export const userService = {
   searchUsers: (searchTerm) => api.get("/api/users/search", { params: { searchTerm } }),
 
   /**
-   * Authenticate user by username and password
-   * @param {string} username - Username
-   * @param {string} password - Password
-   * @returns {Promise} - Promise with authentication response
-   */
-  authenticateUser: (username, password) =>
-    api.post("/api/users/authenticate", null, { params: { username, password } }),
-
-  /**
    * Check if username is available
    * @param {string} username - Username to check
    * @returns {Promise} - Promise with availability status
@@ -95,4 +86,3 @@ export const userService = {
    */
   countUsersByRole: (role) => api.get("/api/users/count-by-role", { params: { role } }),
 }
-

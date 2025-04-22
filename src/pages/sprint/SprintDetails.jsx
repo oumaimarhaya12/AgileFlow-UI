@@ -374,4 +374,3 @@ const SprintDetails = () => {
 }
 
 export default SprintDetails
-

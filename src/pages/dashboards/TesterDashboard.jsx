@@ -27,26 +27,70 @@ const TesterDashboard = () => {
         setLoading(true)
 
         // Fetch tasks assigned to the user for testing
-        const tasksResponse = await axios.get(`/api/tasks?assignedUserId=${user.id}`)
-        const userTasks = tasksResponse.data || []
-
-        // Fetch active sprint
-        const sprintsResponse = await axios.get("/api/sprints/active")
-        const activeSprints = sprintsResponse.data || []
-
-        // Set tasks and current sprint
-        setTasks(userTasks)
-        if (activeSprints.length > 0) {
-          setCurrentSprint(activeSprints[0])
+        let tasksData = []
+        try {
+          const tasksResponse = await axios.get(`/api/tasks?assignedUserId=${user.id}`)
+          tasksData = tasksResponse.data || []
+        } catch (error) {
+          console.error("Error fetching tasks:", error)
+          toast.warning("Using mock task data due to API error")
+          // Mock data for tasks
+          tasksData = [
+            { id: 1, title: "Test login functionality", status: "TESTING", description: "Verify all login scenarios" },
+            { id: 2, title: "Test user registration", status: "DONE", description: "Verify registration process" },
+            { id: 3, title: "Test password reset", status: "FAILED", description: "Verify password reset flow" },
+            { id: 4, title: "Test dashboard UI", status: "TESTING", description: "Verify dashboard components" },
+            { id: 5, title: "Test project creation", status: "TESTING", description: "Verify project creation flow" },
+          ]
         }
 
+        // Fetch active sprint
+        let activeSprint = null
+        try {
+          const sprintsResponse = await axios.get("/api/sprints/active")
+          const activeSprints = sprintsResponse.data || []
+          if (activeSprints.length > 0) {
+            activeSprint = activeSprints[0]
+          }
+        } catch (error) {
+          console.error("Error fetching active sprint:", error)
+          toast.warning("Using mock sprint data due to API error")
+          // Mock data for active sprint
+          activeSprint = {
+            id: 1,
+            name: "Sprint 1",
+            startDate: "2023-06-01",
+            endDate: "2023-06-14",
+          }
+        }
+
+        // Fetch recent test results
+        let testResults = []
+        try {
+          const testResultsResponse = await axios.get(`/api/tasks/test-results?testerId=${user.id}&limit=5`)
+          testResults = testResultsResponse.data || []
+        } catch (error) {
+          console.error("Error fetching test results:", error)
+          // Mock data for test results
+          testResults = [
+            { id: 1, taskId: 1, taskTitle: "Test login functionality", status: "PASSED", date: "2023-06-05" },
+            { id: 2, taskId: 3, taskTitle: "Test password reset", status: "FAILED", date: "2023-06-04" },
+            { id: 3, taskId: 2, taskTitle: "Test user registration", status: "PASSED", date: "2023-06-03" },
+          ]
+        }
+
+        // Set tasks and current sprint
+        setTasks(tasksData)
+        setCurrentSprint(activeSprint)
+        setRecentTestResults(testResults)
+
         // Calculate stats
-        const passed = userTasks.filter((task) => task.status === "DONE").length
-        const failed = userTasks.filter((task) => task.status === "FAILED").length
-        const pending = userTasks.filter((task) => task.status === "TESTING").length
+        const passed = tasksData.filter((task) => task.status === "DONE").length
+        const failed = tasksData.filter((task) => task.status === "FAILED").length
+        const pending = tasksData.filter((task) => task.status === "TESTING").length
 
         setStats({
-          totalTasks: userTasks.length,
+          totalTasks: tasksData.length,
           passedTasks: passed,
           failedTasks: failed,
           pendingTasks: pending,
@@ -55,9 +99,7 @@ const TesterDashboard = () => {
         console.error("Error fetching dashboard data:", error)
         toast.error("Failed to load dashboard data")
 
-        // Set empty data
-        setTasks([])
-        setCurrentSprint(null)
+        // Set default values if everything fails
         setStats({
           totalTasks: 0,
           passedTasks: 0,

@@ -146,4 +146,3 @@ const Sidebar = ({ isOpen, toggleSidebar, userRole, isMobile }) => {
 }
 
 export default Sidebar
-

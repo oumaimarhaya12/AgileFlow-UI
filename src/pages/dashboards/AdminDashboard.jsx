@@ -44,28 +44,100 @@ const AdminDashboard = () => {
         setLoading(true)
 
         // Fetch users - Admin has full access to user endpoints
-        const usersResponse = await axios.get("/api/users")
-        const users = usersResponse.data || []
+        let users = []
+        try {
+          const usersResponse = await axios.get("/api/users")
+          users = usersResponse.data || []
+        } catch (error) {
+          console.error("Error fetching users:", error)
+          toast.warning("Using mock user data due to API error")
+          users = [
+            { id: 1, username: "admin", email: "admin@example.com", role: "ADMIN", active: true },
+            { id: 2, username: "productowner", email: "po@example.com", role: "PRODUCT_OWNER", active: true },
+            { id: 3, username: "scrummaster", email: "sm@example.com", role: "SCRUM_MASTER", active: true },
+            { id: 4, username: "developer1", email: "dev1@example.com", role: "DEVELOPER", active: true },
+            { id: 5, username: "developer2", email: "dev2@example.com", role: "DEVELOPER", active: true },
+            { id: 6, username: "tester1", email: "tester1@example.com", role: "TESTER", active: true },
+            { id: 7, username: "inactive", email: "inactive@example.com", role: "DEVELOPER", active: false },
+          ]
+        }
 
         // Fetch projects - Admin has full access to project endpoints
-        const projectsResponse = await axios.get("/api/projects")
-        const projects = projectsResponse.data || []
+        let projects = []
+        try {
+          const projectsResponse = await axios.get("/api/projects")
+          projects = projectsResponse.data || []
+        } catch (error) {
+          console.error("Error fetching projects:", error)
+          toast.warning("Using mock project data due to API error")
+          projects = [
+            {
+              id: 1,
+              projectName: "AgileFlow Development",
+              description: "Development of the AgileFlow application",
+              status: "ACTIVE",
+            },
+            {
+              id: 2,
+              projectName: "Website Redesign",
+              description: "Redesign of the company website",
+              status: "ACTIVE",
+            },
+            { id: 3, projectName: "Mobile App", description: "Mobile application development", status: "ACTIVE" },
+          ]
+        }
 
         // Fetch tasks - Admin has read access to tasks
-        const tasksResponse = await axios.get("/api/tasks")
-        const tasks = tasksResponse.data || []
+        let tasks = []
+        try {
+          const tasksResponse = await axios.get("/api/tasks")
+          tasks = tasksResponse.data || []
+        } catch (error) {
+          console.error("Error fetching tasks:", error)
+          toast.warning("Using mock task data due to API error")
+          tasks = Array(25)
+            .fill(null)
+            .map((_, i) => ({ id: i + 1 }))
+        }
 
         // Fetch sprints - Admin has full access to sprints
-        const sprintsResponse = await axios.get("/api/sprints")
-        const sprints = sprintsResponse.data || []
+        let sprints = []
+        try {
+          const sprintsResponse = await axios.get("/api/sprints")
+          sprints = sprintsResponse.data || []
+        } catch (error) {
+          console.error("Error fetching sprints:", error)
+          toast.warning("Using mock sprint data due to API error")
+          sprints = Array(5)
+            .fill(null)
+            .map((_, i) => ({ id: i + 1 }))
+        }
 
         // Fetch product backlogs - Admin has full access
-        const backlogsResponse = await axios.get("/api/productbacklogs")
-        const productBacklogs = backlogsResponse.data || []
+        let productBacklogs = []
+        try {
+          const backlogsResponse = await axios.get("/api/productbacklogs")
+          productBacklogs = backlogsResponse.data || []
+        } catch (error) {
+          console.error("Error fetching product backlogs:", error)
+          toast.warning("Using mock backlog data due to API error")
+          productBacklogs = Array(3)
+            .fill(null)
+            .map((_, i) => ({ id: i + 1 }))
+        }
 
         // Fetch user stories - Admin has read access
-        const userStoriesResponse = await axios.get("/api/userstories")
-        const userStories = userStoriesResponse.data || []
+        let userStories = []
+        try {
+          const userStoriesResponse = await axios.get("/api/userstories")
+          userStories = userStoriesResponse.data || []
+        } catch (error) {
+          console.error("Error fetching user stories:", error)
+          toast.warning("Using mock user story data due to API error")
+          userStories = Array(15)
+            .fill(null)
+            .map((_, i) => ({ id: i + 1 }))
+        }
 
         // Calculate stats
         const activeUsers = users.filter((user) => user.active).length
@@ -108,7 +180,7 @@ const AdminDashboard = () => {
         console.error("Error fetching dashboard data:", error)
         toast.error("Failed to load dashboard data")
 
-        // Set empty data
+        // Set default values if everything fails
         setStats({
           totalUsers: 0,
           activeUsers: 0,
